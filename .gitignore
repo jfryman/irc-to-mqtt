@@ -1,0 +1,8 @@
+bin
+
+.env
+.#*
+*.swp
+
+vendor/bundler
+.bundle

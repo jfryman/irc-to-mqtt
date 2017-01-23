@@ -6,15 +6,20 @@ require 'json'
 require 'mqtt'
 require 'raven'
 require 'scrolls'
-require 'pry'
 
 
 MQTT_URI = ENV['MQTT_URI']
-MQTT_TOPIC_BASE = ENV['MQTT_TOPIC_BASE']
 IRC_SERVER = ENV['IRC_SERVER']
 IRC_USERNAME = ENV['IRC_USERNAME']
 IRC_PASSWORD = ENV['IRC_PASSWORD']
 IRC_PORT = ENV['IRC_PORT']
+IRC_NICK = ENV['IRC_NICK']
+IRC_NETWORK = ENV['IRC_NETWORK']
+MQTT_TOPIC_BASE = [
+  "irc",
+  IRC_NETWORK,
+  IRC_NICK
+].join('/')
 
 class MqttWorker
   def initialize(bot)
@@ -26,7 +31,7 @@ class MqttWorker
 
   def start
     @queue.get do |topic, message|
-      @bot.handlers.dispatch(:mqtt_message, nil, topic, message)
+      @bot.handlers.dispatch(:mqtt_message, nil, topic, message.chomp) if topic.match '/in$'
     end
   end
 end
@@ -34,28 +39,49 @@ end
 class MqttBridge
   include Cinch::Plugin
 
-  def initialize
+  def initialize(*args)
+    super
+
     @queue = MQTT::Client.connect MQTT_URI
   end
 
   def room_to_topic(room)
-    room
+    [
+      "irc",
+      IRC_NETWORK,
+      IRC_NICK,
+      room.gsub(/^#/, ''),
+      'out'
+    ].join('/')
+  end
+
+  def network_from_topic(topic)
+    topic_extract(topic, 1)
+  end
+
+  def nick_from_topic(topic)
+    topic_extract(topic, 2)
   end
 
   def room_from_topic(topic)
-    topic[/room\/(\w+)\//,1]
+    "##{topic_extract(topic, 3)}"
   end
 
-  match /^$/
+  def topic_extract(topic, index)
+    topic.split('/')[index]
+  end
+
+  set :prefix, //
+  match /(.*)/
   def execute(m)
-    topic = room_to_topic m.room
+    topic = room_to_topic m.channel.name
     message = m.message
 
     @queue.publish(topic, message)
   end
 
   listen_to :mqtt_message
-  def send(m, topic, message)
+  def listen(m, topic, message)
     room = room_from_topic topic
 
     Channel(room).send message

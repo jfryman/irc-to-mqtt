@@ -1,1 +1,1 @@
-worker: bundle exec ruby lib/email-to-mqtt.rb
+worker: bundle exec ruby lib/irc-to-mqtt.rb

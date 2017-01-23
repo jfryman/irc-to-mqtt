@@ -8,25 +8,29 @@ require 'raven'
 require 'scrolls'
 
 
-MQTT_URI = ENV['MQTT_URI']
-IRC_SERVER = ENV['IRC_SERVER']
-IRC_USERNAME = ENV['IRC_USERNAME']
-IRC_PASSWORD = ENV['IRC_PASSWORD']
-IRC_PORT = ENV['IRC_PORT']
-IRC_NICK = ENV['IRC_NICK']
-IRC_NETWORK = ENV['IRC_NETWORK']
-MQTT_TOPIC_BASE = [
-  "irc",
-  IRC_NETWORK,
-  IRC_NICK
-].join('/')
+module Environment
+  MQTT_URI = ENV['MQTT_URI']
+  IRC_SERVER = ENV['IRC_SERVER']
+  IRC_USERNAME = ENV['IRC_USERNAME']
+  IRC_PASSWORD = ENV['IRC_PASSWORD']
+  IRC_PORT = ENV['IRC_PORT']
+  IRC_NICK = ENV['IRC_NICK']
+  IRC_NETWORK = ENV['IRC_NETWORK']
+  MQTT_TOPIC_BASE = [
+    "irc",
+    IRC_NETWORK,
+    IRC_NICK
+  ].join('/')
+end
 
 class MqttWorker
+  include Environment
+
   def initialize(bot)
     @bot = bot
-    @queue = MQTT::Client.connect MQTT_URI
+    @queue = MQTT::Client.connect Environment::MQTT_URI
 
-    @queue.subscribe([MQTT_TOPIC_BASE, '#'].join('/'))
+    @queue.subscribe([Environment::MQTT_TOPIC_BASE, '#'].join('/'))
   end
 
   def start
@@ -37,19 +41,21 @@ class MqttWorker
 end
 
 class MqttBridge
+  include Environment
+
   include Cinch::Plugin
 
   def initialize(*args)
     super
 
-    @queue = MQTT::Client.connect MQTT_URI
+    @queue = MQTT::Client.connect Environment::MQTT_URI
   end
 
   def room_to_topic(room)
     [
       "irc",
-      IRC_NETWORK,
-      IRC_NICK,
+      Environment::IRC_NETWORK,
+      Environment::IRC_NICK,
       room.gsub(/^#/, ''),
       'out'
     ].join('/')
@@ -91,10 +97,10 @@ end
 ### Main Application
 bot = Cinch::Bot.new do
   configure do |c|
-    c.server = IRC_SERVER
-    c.user = IRC_USERNAME
-    c.password = IRC_PASSWORD
-    c.port = IRC_PORT
+    c.server = Environment::IRC_SERVER
+    c.user = Environment::IRC_USERNAME
+    c.password = Environment::IRC_PASSWORD
+    c.port = Environment::IRC_PORT
     c.plugins.plugins = [MqttBridge]
   end
 end
